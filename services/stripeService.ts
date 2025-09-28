@@ -12,6 +12,14 @@ const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
  * @param userEmail The email of the user for pre-filling Stripe checkout.
  */
 export const redirectToCheckout = async (priceId: string, userEmail: string) => {
+    // Developer-friendly check: Ensure the backend URL has been configured.
+    if (CREATE_CHECKOUT_SESSION_URL.includes('your-region-your-project')) {
+        const errorMessage = "Stripe Checkout cannot proceed. The backend URL for creating a checkout session is still a placeholder. Please update `CREATE_CHECKOUT_SESSION_URL` in `src/constants.ts` with your deployed Google Cloud Function URL.";
+        console.error(errorMessage);
+        alert(errorMessage);
+        throw new Error("Backend URL not configured.");
+    }
+
     // 1. Call your Google Cloud Function to create a checkout session.
     // This is a POST request to your backend endpoint.
     // Your backend needs to be configured to handle this request, create a session

@@ -3,8 +3,13 @@ import type { SubscriptionTier } from './types';
 // IMPORTANT: Replace with your actual Stripe Publishable Key
 export const STRIPE_PUBLISHABLE_KEY = 'pk_live_51S9IdwF1aEX7i16QgPOLc8vVyGiEjjfUiio6Qi3HltaIL3a60KVB05ph7Lk6pWhtIZF34LVlwBUrCusSXpe86Y8400hvnM920V';
 
-// IMPORTANT: Replace with your actual Google Cloud Function URL for creating Stripe sessions
-export const CREATE_CHECKOUT_SESSION_URL = 'https://your-region-your-project.cloudfunctions.net/createStripeCheckout';
+// =======================================================================================
+// CRITICAL CONFIGURATION:
+// You MUST replace this placeholder URL with the URL of your deployed backend function
+// (e.g., a Google Cloud Function) that creates a Stripe Checkout session.
+// The payment flow WILL NOT WORK until this is updated.
+// =======================================================================================
+export const CREATE_CHECKOUT_SESSION_URL = 'https://us-central1-touchfeets.cloudfunctions.net/createStripeCheckout';
 
 export const Tiers: { [key: string]: SubscriptionTier } = {
   FREE: {
