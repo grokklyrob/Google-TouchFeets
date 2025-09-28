@@ -1,17 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { User } from '../types';
+import type { User, GoogleJwtPayload } from '../types';
 import { CrossIcon, SettingsIcon, SyncIcon, BillingIcon, SignOutIcon, ChevronDownIcon, GoogleIcon } from './Icons';
+
+// This tells TypeScript that the 'google' object will be available on the window
+// from the GSI script loaded in index.html.
+declare const google: any;
 
 interface HeaderProps {
     user: User | null;
     onSignOut: () => void;
+    onAuthSuccess: (payload: GoogleJwtPayload) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, onSignOut }) => {
+export const Header: React.FC<HeaderProps> = ({ user, onSignOut, onAuthSuccess }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const tokenClient = useRef<any>(null);
 
     useEffect(() => {
+        // This function will be called once the GSI script is loaded.
+        const initializeGsi = () => {
+             if (typeof google === 'undefined' || !google.accounts) {
+                // If google isn't loaded, retry shortly.
+                setTimeout(initializeGsi, 100);
+                return;
+            }
+            // Initialize the OAuth2 Token Client for a reliable popup flow.
+            tokenClient.current = google.accounts.oauth2.initTokenClient({
+                client_id: '474815569807-bdronvmnbcu4aghsslr0esjoeq6d38uq.apps.googleusercontent.com',
+                scope: 'openid email profile',
+                callback: async (tokenResponse: any) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        try {
+                            // Use the access token to fetch user profile info
+                            const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                headers: {
+                                    'Authorization': `Bearer ${tokenResponse.access_token}`
+                                }
+                            });
+
+                            if (!userInfoResponse.ok) {
+                                throw new Error('Failed to fetch user info');
+                            }
+
+                            const userInfo: GoogleJwtPayload = await userInfoResponse.json();
+                            onAuthSuccess(userInfo);
+                        } catch (error) {
+                            console.error("Error fetching user info:", error);
+                            alert("Could not sign you in. Please try again.");
+                        }
+                    }
+                },
+            });
+        };
+
+        initializeGsi();
+        
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
@@ -21,24 +65,15 @@ export const Header: React.FC<HeaderProps> = ({ user, onSignOut }) => {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
-
+    }, [onAuthSuccess]);
+    
     const handleSignInClick = () => {
-        const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem('touchfeets_nonce', nonce);
-
-        const googleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
-        
-        const params = {
-          client_id: '474815569807-bdronvmnbcu4aghsslr0esjoeq6d38uq.apps.googleusercontent.com',
-          redirect_uri: window.location.origin,
-          response_type: 'id_token',
-          scope: 'openid email profile',
-          nonce: nonce,
-        };
-
-        const url = `${googleAuthUrl}?${new URLSearchParams(params).toString()}`;
-        window.location.href = url;
+        if (tokenClient.current) {
+            // This reliably triggers the popup.
+            tokenClient.current.requestAccessToken();
+        } else {
+            alert("Google Sign-In is preparing. Please click again in a moment.");
+        }
     };
 
     const handleSignOutClick = (e: React.MouseEvent) => {

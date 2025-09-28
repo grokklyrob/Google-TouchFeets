@@ -9,17 +9,6 @@ import type { User, SubscriptionTier, GoogleJwtPayload } from './types';
 import { Tiers } from './constants';
 import { redirectToCheckout } from './services/stripeService';
 
-// A simple JWT decoder
-const decodeJwt = (token: string): GoogleJwtPayload => {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch (e) {
-    console.error("Failed to decode JWT", e);
-    return {} as GoogleJwtPayload;
-  }
-};
-
-
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('touchfeets_user');
@@ -34,10 +23,8 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  // Handle successful Google Sign-In from redirect
+  // Handle successful Google Sign-In, now receiving the payload directly
   const handleAuthSuccess = useCallback((payload: GoogleJwtPayload) => {
-    // In a real app, you'd verify this token with your backend.
-    // Here we'll check if the user exists in localStorage or create a new one.
     // This is a placeholder for fetching user data from your database.
     const existingUser = localStorage.getItem(`user_${payload.sub}`);
     if (existingUser) {
@@ -55,7 +42,7 @@ const App: React.FC = () => {
         setUser(newUser);
     }
   }, []);
-
+  
   const handleSignOut = useCallback(() => {
       if(user) {
         // In a real app, you'd also invalidate the session on the backend.
@@ -90,31 +77,6 @@ const App: React.FC = () => {
     });
   }, []);
   
-  // Effect to handle redirect from Google OAuth
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1)); // remove #
-      const idToken = params.get('id_token');
-      if (idToken) {
-        const storedNonce = localStorage.getItem('touchfeets_nonce');
-        const payload = decodeJwt(idToken);
-        
-        if (payload.nonce === storedNonce) {
-          // Nonce matches, authentication is valid
-          handleAuthSuccess(payload);
-        } else {
-          console.error("Nonce mismatch. Potential replay attack.");
-          alert("Authentication failed. Please try again.");
-        }
-        localStorage.removeItem('touchfeets_nonce');
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on mount
-
   // Effect to handle redirect from Stripe checkout
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -150,7 +112,7 @@ const App: React.FC = () => {
     <div className="relative min-h-screen bg-black text-gray-200 overflow-hidden">
       <DigitalIncense />
       <div className="relative z-10">
-        <Header user={user} onSignOut={handleSignOut} />
+        <Header user={user} onSignOut={handleSignOut} onAuthSuccess={handleAuthSuccess} />
         <main>
           <Hero />
           <Generator user={user} onGenerate={decrementGenerations} />
